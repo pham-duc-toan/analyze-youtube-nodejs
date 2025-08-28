@@ -14,6 +14,8 @@ class YouTubeAnalyzer {
     this.screenshotsDir = process.env.SCREENSHOTS_DIR || "./screenshots";
 
     this.elevenLabs = new ElevenLabsService();
+    const GPTZeroService = require("./GPTZeroService");
+    this.gptZero = new GPTZeroService();
   }
 
   async analyze(url, jobId) {
@@ -44,6 +46,27 @@ class YouTubeAnalyzer {
       // Step 4: Transcribe with ElevenLabs
       console.log(`[${jobId}] Transcribing audio...`);
       const transcription = await this.elevenLabs.transcribe(wavPath);
+
+      // Step 5: Run GPTZero for each segment
+      if (transcription && Array.isArray(transcription.segments)) {
+        for (let i = 0; i < transcription.segments.length; i++) {
+          const segment = transcription.segments[i];
+          if (segment.text && segment.text.trim().length > 0) {
+            try {
+              const aiProb = await this.gptZero.getAIPrediction(segment.text);
+              segment.ai_probability = aiProb;
+              console.log(
+                `[${jobId}] GPTZero ai_probability for segment ${i}:`,
+                aiProb
+              );
+            } catch (err) {
+              segment.ai_probability = null;
+            }
+          } else {
+            segment.ai_probability = null;
+          }
+        }
+      }
 
       // Final result
       result.transcription = transcription;
