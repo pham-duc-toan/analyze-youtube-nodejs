@@ -25,27 +25,38 @@ class YouTubeAnalyzer {
       startTime: new Date().toISOString(),
       status: "processing",
     };
+    // Lấy app để gửi log qua WebSocket
+    const app = require("../server");
+
+    function sendLog(msg) {
+      app.sendLog(jobId, msg);
+    }
 
     try {
       // Save initial status
       await this.saveResult(jobId, result);
+      sendLog("Job started");
 
       // Step 1: Take screenshot with Puppeteer
-      console.log(`[${jobId}] Taking screenshot...`);
+      sendLog("Taking screenshot...");
       const screenshotPath = await this.takeScreenshot(url, jobId);
       result.screenshot = `/result/${jobId}/screenshot`;
+      sendLog("Screenshot done");
 
       // Step 2: Download audio
-      console.log(`[${jobId}] Downloading audio...`);
+      sendLog("Downloading audio...");
       const audioPath = await this.downloadAudio(url, jobId);
+      sendLog("Audio downloaded");
 
       // Step 3: Convert to WAV
-      console.log(`[${jobId}] Converting audio to WAV...`);
+      sendLog("Converting audio to WAV...");
       const wavPath = await this.convertToWav(audioPath, jobId);
+      sendLog("Audio converted to WAV");
 
       // Step 4: Transcribe with ElevenLabs
-      console.log(`[${jobId}] Transcribing audio...`);
+      sendLog("Transcribing audio...");
       const transcription = await this.elevenLabs.transcribe(wavPath);
+      sendLog("Transcription done");
 
       // Step 5: Run GPTZero for each segment
       if (transcription && Array.isArray(transcription.segments)) {
@@ -53,17 +64,20 @@ class YouTubeAnalyzer {
           const segment = transcription.segments[i];
           if (segment.text && segment.text.trim().length > 0) {
             try {
+              sendLog(
+                `GPTZero analyzing segment ${i + 1}/${
+                  transcription.segments.length
+                }`
+              );
               const aiProb = await this.gptZero.getAIPrediction(segment.text);
               segment.ai_probability = aiProb;
-              console.log(
-                `[${jobId}] GPTZero ai_probability for segment ${i}:`,
-                aiProb
-              );
             } catch (err) {
               segment.ai_probability = null;
+              sendLog(`Segment ${i + 1}: GPTZero error`);
             }
           } else {
             segment.ai_probability = null;
+            sendLog(`Segment ${i + 1}: empty text`);
           }
         }
       }
@@ -74,17 +88,17 @@ class YouTubeAnalyzer {
       result.status = "completed";
 
       await this.saveResult(jobId, result);
+      sendLog("Job completed");
 
       // Cleanup temporary files
       await this.cleanup([audioPath, wavPath]);
-
-      console.log(`[${jobId}] Analysis completed successfully`);
+      sendLog("Cleanup done");
     } catch (error) {
-      console.error(`[${jobId}] Analysis failed:`, error);
       result.error = error.message;
       result.status = "failed";
       result.endTime = new Date().toISOString();
       await this.saveResult(jobId, result);
+      sendLog(`Job failed: ${error.message}`);
     }
   }
 

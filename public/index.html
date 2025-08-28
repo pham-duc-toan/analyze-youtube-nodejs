@@ -191,6 +191,36 @@
 
       let currentJobId = null;
       let checkInterval = null;
+      let ws = null;
+      let wsTest = null;
+      const logContainer = document.createElement("div");
+      logContainer.id = "logContainer";
+      logContainer.style =
+        "background:#f4f4f4;border-radius:8px;padding:10px;margin-top:20px;font-size:14px;max-height:200px;overflow-y:auto;";
+      result.appendChild(logContainer);
+
+      // Kiểm tra kết nối WebSocket khi vừa vào trang
+      function testWebSocketConnection() {
+        logContainer.innerHTML = "";
+        wsTest = new WebSocket(`ws://${window.location.host}/?jobId=test`);
+        let testConnected = false;
+        wsTest.onopen = () => {
+          testConnected = true;
+          logContainer.innerHTML = `<div style='color:green'>[WebSocket server sẵn sàng]</div>`;
+          console.log("WebSocket test: connected");
+        };
+        wsTest.onerror = () => {
+          logContainer.innerHTML = `<div style='color:red'>[WebSocket error: không thể kết nối tới server]</div>`;
+          console.log("WebSocket test: error");
+        };
+        wsTest.onclose = () => {
+          if (!testConnected) {
+            logContainer.innerHTML = `<div style='color:red'>[WebSocket error: không thể kết nối tới server]</div>`;
+            console.log("WebSocket test: closed without connect");
+          }
+        };
+      }
+      window.addEventListener("DOMContentLoaded", testWebSocketConnection);
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -236,6 +266,52 @@
                     </div>
                 `
           );
+
+          // Đóng kết nối test trước khi tạo kết nối job thực
+          if (wsTest) {
+            wsTest.close();
+            wsTest = null;
+          }
+          // Clear old logs
+          logContainer.innerHTML = "";
+          logContainer.style.display = "none";
+
+          // Start WebSocket for logs
+          if (ws) ws.close();
+          ws = new WebSocket(
+            `ws://${window.location.host}/?jobId=${currentJobId}`
+          );
+          let socketConnected = false;
+          ws.onopen = () => {
+            socketConnected = true;
+            logContainer.style.display = "block";
+            logContainer.innerHTML = `<div style='color:green'>[WebSocket connected]</div>`;
+          };
+          ws.onmessage = (event) => {
+            if (!socketConnected) return;
+            const log = JSON.parse(event.data);
+            const logLine = document.createElement("div");
+            logLine.textContent = `[${new Date(
+              log.timestamp
+            ).toLocaleTimeString()}] ${log.message}`;
+            logContainer.appendChild(logLine);
+            logContainer.scrollTop = logContainer.scrollHeight;
+          };
+          ws.onerror = () => {
+            logContainer.style.display = "block";
+            logContainer.innerHTML = `<div style='color:red'>[WebSocket error: không thể kết nối tới server]</div>`;
+          };
+          ws.onclose = () => {
+            if (socketConnected) {
+              const logLine = document.createElement("div");
+              logLine.textContent = "[WebSocket closed]";
+              logLine.style.color = "gray";
+              logContainer.appendChild(logLine);
+            } else {
+              logContainer.style.display = "block";
+              logContainer.innerHTML = `<div style='color:red'>[WebSocket error: không thể kết nối tới server]</div>`;
+            }
+          };
 
           // Start checking for results
           startProgressCheck();
@@ -330,6 +406,10 @@
         if (checkInterval) {
           clearInterval(checkInterval);
           checkInterval = null;
+        }
+        if (ws) {
+          ws.close();
+          ws = null;
         }
       }
     </script>
