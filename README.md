@@ -8,7 +8,8 @@ Dự án này là một dịch vụ Node.js cho phép phân tích video YouTube,
 
 - Đã deploy thành công tại: [http://34.136.66.213:8080](http://34.136.66.213:8080)
 - Source github: https://github.com/pham-duc-toan/analyze-youtube-nodejs.git
-- Video demo quy trình end-to-end:
+- Docker Hub image: https://hub.docker.com/r/toandeptraivodichvutru/analyze-youtube-video
+- Video demo quy trình end-to-end: https://www.youtube.com/watch?v=jpJW7ZYVK8I&ab_channel=To%C3%A0nPh%E1%BA%A1m
 
 ## Môi trường & Biến môi trường
 
@@ -27,6 +28,12 @@ Dự án này là một dịch vụ Node.js cho phép phân tích video YouTube,
   ```
 
 ## Thiết kế & Quyết định
+
+### Pull image về VPS hoặc máy khác
+
+```sh
+docker pull toandeptraivodichvutru/analyze-youtube-video:latest
+```
 
 ### Luồng hoạt động tổng thể
 
