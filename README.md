@@ -1,157 +1,100 @@
-# YouTube Analyzer
+# YouTube Analyzer - End-to-End Deployment Guide
 
-Simple Node.js service that analyzes YouTube videos and generates transcriptions using ElevenLabs API.
+## Giới thiệu
 
-## Features
+Dự án này là một dịch vụ Node.js cho phép phân tích video YouTube, chụp ảnh thumbnail, trích xuất audio, phiên âm bằng ElevenLabs, kiểm tra AI probability với GPTZero, và trả về kết quả JSON hợp nhất cùng ảnh chụp.
 
-- 📹 **YouTube URL Analysis**: Submit any YouTube URL for processing
-- 🖼️ **Screenshot Capture**: Takes screenshots of the YouTube page using Puppeteer
-- 🎵 **Audio Extraction**: Downloads audio from YouTube videos using youtube-dl-exec
-- 🔄 **Audio Conversion**: Converts audio to WAV format using FFmpeg
-- 📝 **Transcription**: Generates accurate transcriptions using ElevenLabs Speech-to-Text API
-- 🌐 **Web Interface**: Simple web interface for easy URL submission
-- 📊 **REST API**: RESTful endpoints for programmatic access
+## Demo
 
-## Quick Start
+- Đã deploy thành công tại: [http://34.136.66.213:8080](http://34.136.66.213:8080)
+- Video demo quy trình end-to-end: (bạn hãy quay video ≤90 giây thao tác gửi link, nhận kết quả, xem JSON và ảnh)
 
-### Prerequisites
+## Cài đặt & Khởi động
+
+1. Clone repo:
+   ```sh
+   git clone https://github.com/pham-duc-toan/analyze-youtube-nodejs.git
+   cd analyze-youtube-nodejs
+   ```
+2. Tạo file `.env` theo mẫu bên dưới.
+3. Build và chạy Docker:
+   ```sh
+   docker build -t youtube-analyzer .
+   docker run -d -p 8080:8080 --env-file .env youtube-analyzer
+   ```
+4. Truy cập web: [http://34.136.66.213:8080](http://34.136.66.213:8080)
+
+## Môi trường & Biến môi trường
 
 - Node.js 18+
-- FFmpeg installed on your system
+- FFmpeg
 - ElevenLabs API key
+- Các biến môi trường:
+  ```env
+  PORT=8080
+  ELEVENLABS_API_KEY=your_elevenlabs_api_key
+  UPLOAD_DIR=./uploads
+  RESULTS_DIR=./results
+  SCREENSHOTS_DIR=./screenshots
+  DEBUG_MODE=true
+  MAX_VIDEO_DURATION=600
+  ```
 
-### Installation
+## Thiết kế & Quyết định
 
-1. Install dependencies:
+### Luồng hoạt động tổng thể
 
-```bash
-npm install
-```
+1. Người dùng gửi URL YouTube qua web hoặc API.
+2. Server dùng Puppeteer headless để truy cập trang YouTube, xác minh video phát được, chụp ảnh thumbnail.
+3. Tải audio track bằng youtube-dl-exec, chuyển sang WAV (16kHz, mono, 16-bit) bằng FFmpeg.
+4. Gửi file audio sang ElevenLabs Scribe để phiên âm, lấy transcript chi tiết từng câu, từng người nói.
+5. Với mỗi câu transcript, server dùng Puppeteer để truy cập domain của GPTZero và fetch API `/v2/predict/text` ngay trên trình duyệt domain đó (bypass CORS, không cần API key).
 
-2. Configure environment:
+- **Lý do:** GPTZero không cung cấp API free, nhưng cho phép thử nghiệm trên domain của họ.
+- **Nhược điểm:** Vẫn bị giới hạn số lượng request trên 1 IP (rate limit), nếu xử lý nhiều sẽ bị chặn hoặc delay.
 
-```bash
-cp .env.example .env
-# Edit .env and add your ElevenLabs API key
-```
+6. Kết quả transcript được bổ sung trường `ai_probability` cho từng câu.
+7. Lưu kết quả JSON và ảnh chụp, cung cấp API trả về kết quả và ảnh.
+8. WebSocket truyền log realtime về client để hiển thị tiến trình.
 
-3. Start the service:
+### Thiết kế kỹ thuật
 
-```bash
-npm start
-```
+- Express, Puppeteer, youtube-dl-exec, FFmpeg, ElevenLabs, GPTZero (qua Puppeteer).
+- Dockerfile tối ưu, chỉ cần một lệnh khởi động.
+- `.dockerignore` loại trừ file không cần thiết.
 
-4. Access the web interface at `http://localhost:8080`
-
-## API Usage
-
-### Analyze YouTube Video
-
-```bash
-POST http://localhost:8080/analyze
-Content-Type: application/json
-
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-**Response:**
+## Mẫu JSON kết quả
 
 ```json
 {
-  "jobId": "unique-job-id",
-  "status": "completed"
-}
-```
-
-### Get Results
-
-```bash
-GET http://localhost:8080/result/{jobId}
-```
-
-**Response:**
-
-```json
-{
-  "jobId": "unique-job-id",
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+  "jobId": "...",
+  "url": "...",
   "status": "completed",
+  "screenshot": "/result/<jobId>/screenshot",
   "transcription": {
-    "text": "Full transcription text...",
+    "text": "...",
     "segments": [
       {
-        "start": 0.0,
-        "end": 3.5,
-        "text": "Hello, this is a sample...",
-        "speaker": "SPEAKER_00",
-        "words": []
+        "start": 0,
+        "end": 4,
+        "text": "...",
+        "ai_probability": 0.12,
+        "speaker": "SPEAKER_00"
       }
     ],
     "language": "auto",
-    "duration": 125.6
+    "duration": 173
   },
-  "startTime": "2025-08-27T15:30:00.000Z",
-  "endTime": "2025-08-27T15:32:30.000Z"
+  "startTime": "...",
+  "endTime": "..."
 }
 ```
 
-### Get Screenshot
+## Ảnh chụp mẫu
 
-```bash
-GET http://localhost:8080/result/{jobId}/screenshot
-```
+- Ảnh thumbnail được lưu tại `/result/<jobId>/screenshot` hoặc thư mục `screenshots/`.
 
-Returns the PNG screenshot of the YouTube page.
+## Liên hệ & License
 
-## Environment Variables
-
-```env
-PORT=8080
-NODE_ENV=development
-ELEVENLABS_API_KEY=your_elevenlabs_api_key
-UPLOAD_DIR=./uploads
-RESULTS_DIR=./results
-SCREENSHOTS_DIR=./screenshots
-DEBUG_MODE=true
-MAX_VIDEO_DURATION=300
-```
-
-## File Structure
-
-```
-├── src/
-│   ├── server.js              # Main Express server
-│   ├── routes/
-│   │   ├── analyze.js         # POST /analyze endpoint
-│   │   └── result.js          # GET /result endpoints
-│   └── services/
-│       ├── YouTubeAnalyzer.js # Main orchestration service
-│       └── ElevenLabsService.js # Transcription service
-├── public/
-│   └── index.html            # Web interface
-├── uploads/                  # Audio files
-├── results/                  # Analysis results (JSON)
-├── screenshots/              # YouTube page screenshots
-└── package.json
-```
-
-## Limitations
-
-- Maximum video duration: 10 minutes (configurable)
-- Maximum file size: 25MB (ElevenLabs limit)
-- YouTube videos must be publicly accessible
-
-## Dependencies
-
-- **Express**: Web framework
-- **Puppeteer**: Browser automation for screenshots
-- **youtube-dl-exec**: YouTube video downloading
-- **fluent-ffmpeg**: Audio conversion
-- **axios**: HTTP client for ElevenLabs API
-- **form-data**: Multipart form data for file uploads
-
-## License
-
-MIT
+- Tác giả: pham-duc-toan
+- License: MIT
