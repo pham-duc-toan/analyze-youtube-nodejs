@@ -7,22 +7,8 @@ Dự án này là một dịch vụ Node.js cho phép phân tích video YouTube,
 ## Demo
 
 - Đã deploy thành công tại: [http://34.136.66.213:8080](http://34.136.66.213:8080)
-- Video demo quy trình end-to-end: (bạn hãy quay video ≤90 giây thao tác gửi link, nhận kết quả, xem JSON và ảnh)
-
-## Cài đặt & Khởi động
-
-1. Clone repo:
-   ```sh
-   git clone https://github.com/pham-duc-toan/analyze-youtube-nodejs.git
-   cd analyze-youtube-nodejs
-   ```
-2. Tạo file `.env` theo mẫu bên dưới.
-3. Build và chạy Docker:
-   ```sh
-   docker build -t youtube-analyzer .
-   docker run -d -p 8080:8080 --env-file .env youtube-analyzer
-   ```
-4. Truy cập web: [http://34.136.66.213:8080](http://34.136.66.213:8080)
+- Source github: https://github.com/pham-duc-toan/analyze-youtube-nodejs.git
+- Video demo quy trình end-to-end:
 
 ## Môi trường & Biến môi trường
 
